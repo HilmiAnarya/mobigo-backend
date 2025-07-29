@@ -33,3 +33,5 @@ Thumbs.db
 
 go.mod
 go.sum
+
+/migrations
