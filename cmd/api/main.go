@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"mobigo-backend/internal/user"
+	"mobigo-backend/internal/vehicle"
 	"net/http"
 	"time"
 
@@ -12,8 +13,8 @@ import (
 // apiHandlers is a container struct that holds all the different
 // feature handlers for our application.
 type apiHandlers struct {
-	userHandler *user.Handler
-	// vehicleHandler *vehicle.Handler // We will add this later
+	userHandler    *user.Handler
+	vehicleHandler *vehicle.Handler
 }
 
 func main() {
@@ -34,15 +35,15 @@ func main() {
 	userService := user.NewService(userRepository, 5*time.Second)
 	userHandler := user.NewHandler(userService)
 
-	// vehicleRepository := vehicle.NewGORMRepository(db)
-	// vehicleService := vehicle.NewService(vehicleRepository, 5*time.Second)
-	// vehicleHandler := vehicle.NewHandler(vehicleService)
+	vehicleRepository := vehicle.NewGORMRepository(db)
+	vehicleService := vehicle.NewService(vehicleRepository, 5*time.Second)
+	vehicleHandler := vehicle.NewHandler(vehicleService)
 
 	// 3. Create the master handler container
 	// This single object holds all our handlers.
 	handlers := &apiHandlers{
-		userHandler: userHandler,
-		// vehicleHandler: vehicleHandler,
+		userHandler:    userHandler,
+		vehicleHandler: vehicleHandler,
 	}
 
 	// 4. Define Routes, passing the handler container
