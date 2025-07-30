@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/rs/cors"
 	"log"
 	"mobigo-backend/internal/user"
 	"mobigo-backend/internal/vehicle"
@@ -17,6 +18,8 @@ type apiHandlers struct {
 	vehicleHandler *vehicle.Handler
 }
 
+var jwtSecret = "a_very_secret_key_that_should_be_long_and_random"
+
 func main() {
 	// 1. Initialize Database Connection
 	dbUser := "root"
@@ -30,9 +33,8 @@ func main() {
 	log.Println("Successfully connected to the database using GORM!")
 
 	// 2. Wire up all dependencies
-	// Create instances of every repository, service, and handler.
 	userRepository := user.NewGORMRepository(db)
-	userService := user.NewService(userRepository, 5*time.Second)
+	userService := user.NewService(userRepository, jwtSecret, 5*time.Second)
 	userHandler := user.NewHandler(userService)
 
 	vehicleRepository := vehicle.NewGORMRepository(db)
@@ -40,23 +42,27 @@ func main() {
 	vehicleHandler := vehicle.NewHandler(vehicleService)
 
 	// 3. Create the master handler container
-	// This single object holds all our handlers.
 	handlers := &apiHandlers{
 		userHandler:    userHandler,
 		vehicleHandler: vehicleHandler,
 	}
 
-	// 4. Define Routes, passing the handler container
+	// 4. Define Routes
 	router := defineRoutes(handlers)
 
-	// Placeholder health check route
-	router.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("API is healthy and running on Clean Architecture with GORM"))
-	}).Methods("GET")
+	// 5. Setup CORS using rs/cors
+	// This creates a new CORS handler with our desired options.
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:5173"}, // Your React app's origin
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+	})
 
-	// 5. Start Server
+	// 6. Start Server with CORS middleware
 	addr := ":8080"
 	log.Printf("Server starting on %s\n", addr)
-	log.Fatal(http.ListenAndServe(addr, router))
+	// We wrap our main router with the CORS handler.
+	handler := c.Handler(router)
+	log.Fatal(http.ListenAndServe(addr, handler))
 }

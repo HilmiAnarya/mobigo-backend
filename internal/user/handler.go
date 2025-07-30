@@ -23,6 +23,7 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	// We are creating a subrouter for staff-related endpoints for better organization.
 	staffRouter := router.PathPrefix("/api/staff").Subrouter()
 	staffRouter.HandleFunc("/register", h.registerStaffHandler).Methods("POST")
+	staffRouter.HandleFunc("/login", h.loginStaffHandler).Methods("POST") // Add the new login route
 }
 
 // registerStaffRequest defines the expected JSON body for the registration request.
@@ -82,5 +83,44 @@ func (h *Handler) registerStaffHandler(w http.ResponseWriter, r *http.Request) {
 	// 5. Send the successful JSON response.
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated) // 201 Created
+	json.NewEncoder(w).Encode(resp)
+}
+
+// loginRequest defines the expected JSON body for the login request.
+type loginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// loginResponse defines the JSON response for a successful login.
+type loginResponse struct {
+	Token string `json:"token"`
+}
+
+// loginStaffHandler handles the staff login request.
+func (h *Handler) loginStaffHandler(w http.ResponseWriter, r *http.Request) {
+	var req loginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Call the login service
+	_, token, err := h.service.LoginStaff(r.Context(), req.Email, req.Password)
+	if err != nil {
+		// Check for our specific business error
+		if err.Error() == "invalid email or password" {
+			http.Error(w, err.Error(), http.StatusUnauthorized) // 401 Unauthorized
+			return
+		}
+		// For other errors, it's a server problem
+		http.Error(w, "Login failed", http.StatusInternalServerError)
+		return
+	}
+
+	// Create and send the successful response containing the token
+	resp := loginResponse{Token: token}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(resp)
 }
