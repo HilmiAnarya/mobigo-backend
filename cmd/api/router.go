@@ -16,6 +16,8 @@ func defineRoutes(handlers *apiHandlers) *mux.Router {
 	// When we add the vehicle feature, we will just add one line here:
 	handlers.vehicleHandler.RegisterRoutes(router)
 
+	handlers.bookingHandler.RegisterRoutes(router) // Register the new booking routes
+
 	// General-purpose routes
 	router.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

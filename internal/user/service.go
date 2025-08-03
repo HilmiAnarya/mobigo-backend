@@ -1,6 +1,3 @@
-// File: internal/user/service.go
-// This is a NEW FILE. It contains the core business logic for the user feature.
-
 package user
 
 import (
@@ -15,7 +12,7 @@ import (
 
 // Service defines the business logic operations for users.
 type Service interface {
-	RegisterStaff(ctx context.Context, fullName, email, password, phoneNumber, address string) (*domain.User, error)
+	RegisterStaff(ctx context.Context, fullName, email, password, phoneNumber, addess string) (*domain.User, error)
 	// LoginStaff now returns the user and a JWT token string.
 	LoginStaff(ctx context.Context, email, password string) (*domain.User, string, error)
 }

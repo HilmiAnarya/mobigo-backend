@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/rs/cors"
 	"log"
+	"mobigo-backend/internal/booking"
 	"mobigo-backend/internal/user"
 	"mobigo-backend/internal/vehicle"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 type apiHandlers struct {
 	userHandler    *user.Handler
 	vehicleHandler *vehicle.Handler
+	bookingHandler *booking.Handler // Add the booking handler
 }
 
 var jwtSecret = "a_very_secret_key_that_should_be_long_and_random"
@@ -41,10 +43,15 @@ func main() {
 	vehicleService := vehicle.NewService(vehicleRepository, 5*time.Second)
 	vehicleHandler := vehicle.NewHandler(vehicleService)
 
+	bookingRepository := booking.NewGORMRepository(db)
+	bookingService := booking.NewService(bookingRepository, 5*time.Second)
+	bookingHandler := booking.NewHandler(bookingService)
+
 	// 3. Create the master handler container
 	handlers := &apiHandlers{
 		userHandler:    userHandler,
 		vehicleHandler: vehicleHandler,
+		bookingHandler: bookingHandler, // Add the booking handler instance
 	}
 
 	// 4. Define Routes
