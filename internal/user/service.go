@@ -12,7 +12,8 @@ import (
 
 // Service defines the business logic operations for users.
 type Service interface {
-	RegisterStaff(ctx context.Context, fullName, email, password, phoneNumber, addess string) (*domain.User, error)
+	RegisterStaff(ctx context.Context, fullName, email, password, phoneNumber, address string) (*domain.User, error)
+	RegisterCustomer(ctx context.Context, fullName, email, password, phoneNumber string) (*domain.User, error) // New method
 	// LoginStaff now returns the user and a JWT token string.
 	LoginStaff(ctx context.Context, email, password string) (*domain.User, string, error)
 }
@@ -31,6 +32,44 @@ func NewService(repo Repository, jwtSecret string, timeout time.Duration) Servic
 		jwtSecret:      []byte(jwtSecret), // Store the secret as a byte slice
 		contextTimeout: timeout,
 	}
+}
+
+// RegisterCustomer handles the business logic for creating a new customer user.
+func (s *service) RegisterCustomer(ctx context.Context, fullName, email, password, phoneNumber string) (*domain.User, error) {
+	existingUser, err := s.userRepo.GetUserByEmail(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+	if existingUser != nil {
+		return nil, errors.New("user with this email already exists")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	customerRole, err := s.userRepo.GetRoleByName(ctx, "customer")
+	if err != nil {
+		return nil, err
+	}
+	if customerRole == nil {
+		return nil, errors.New("customer role not found in database")
+	}
+
+	newUser := &domain.User{
+		FullName:     fullName,
+		Email:        email,
+		PasswordHash: string(hashedPassword),
+		PhoneNumber:  phoneNumber,
+		Roles:        []*domain.Role{customerRole},
+	}
+
+	err = s.userRepo.CreateUser(ctx, newUser)
+	if err != nil {
+		return nil, err
+	}
+	return newUser, nil
 }
 
 // RegisterStaff handles the business logic for creating a new staff user.
