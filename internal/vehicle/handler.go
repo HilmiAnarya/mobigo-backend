@@ -2,6 +2,7 @@ package vehicle
 
 import (
 	"encoding/json"
+	"mobigo-backend/internal/domain"
 	"net/http"
 	"strconv"
 
@@ -19,9 +20,9 @@ func NewHandler(s Service) *Handler {
 }
 
 // RegisterRoutes sets up the routing for the vehicle feature.
-func (h *Handler) RegisterRoutes(router *mux.Router) {
-	// All vehicle routes will be under the /api/vehicles prefix.
+func (h *Handler) RegisterRoutes(router *mux.Router, authMiddleware func(http.Handler) http.Handler) {
 	r := router.PathPrefix("/api/vehicles").Subrouter()
+	r.Use(authMiddleware) // Apply middleware to all routes in this subrouter
 
 	r.HandleFunc("", h.createVehicleHandler).Methods("POST")
 	r.HandleFunc("", h.getAllVehiclesHandler).Methods("GET")
@@ -55,7 +56,11 @@ func (h *Handler) createVehicleHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vehicle, err := h.service.CreateVehicle(r.Context(), req.Make, req.Model, req.VIN, req.Description, req.Status, req.Year, req.Price)
+	// CHANGED: Convert the incoming string to our domain.VehicleStatus type.
+	// This is the handler's job: to translate raw input into safe, internal types.
+	vehicleStatus := domain.VehicleStatus(req.Status)
+
+	vehicle, err := h.service.CreateVehicle(r.Context(), req.Make, req.Model, req.VIN, req.Description, req.Year, req.Price, vehicleStatus)
 	if err != nil {
 		http.Error(w, "Failed to create vehicle", http.StatusInternalServerError)
 		return
@@ -129,7 +134,10 @@ func (h *Handler) updateVehicleHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updatedVehicle, err := h.service.UpdateVehicle(r.Context(), id, req.Make, req.Model, req.VIN, req.Description, req.Status, req.Year, req.Price)
+	// CHANGED: Convert the string to our enum type.
+	vehicleStatus := domain.VehicleStatus(req.Status)
+
+	updatedVehicle, err := h.service.UpdateVehicle(r.Context(), id, req.Make, req.Model, req.VIN, req.Description, req.Year, req.Price, vehicleStatus)
 	if err != nil {
 		http.Error(w, "Failed to update vehicle", http.StatusInternalServerError)
 		return

@@ -1,5 +1,5 @@
 // File: internal/domain/models.go
-// This file is updated with all the new structs for our application.
+// This file is updated with the enum pattern for all status fields.
 
 package domain
 
@@ -8,7 +8,55 @@ import (
 	"time"
 )
 
-// User corresponds to the 'users' table
+// --- Status Enums ---
+
+type VehicleStatus string
+
+const (
+	VehicleStatusAvailable VehicleStatus = "available"
+	VehicleStatusBooked    VehicleStatus = "booked"
+	VehicleStatusSold      VehicleStatus = "sold"
+)
+
+type BookingStatus string
+
+const (
+	BookingStatusPending   BookingStatus = "pending"
+	BookingStatusConfirmed BookingStatus = "confirmed"
+	BookingStatusCancelled BookingStatus = "cancelled"
+	BookingStatusCompleted BookingStatus = "completed"
+)
+
+type ScheduleStatus string
+
+const (
+	ScheduleStatusScheduled ScheduleStatus = "scheduled"
+	ScheduleStatusCompleted ScheduleStatus = "completed"
+	ScheduleStatusNoShow    ScheduleStatus = "no-show"
+	ScheduleStatusCancelled ScheduleStatus = "cancelled"
+)
+
+type PaymentStatus string
+
+const (
+	PaymentStatusPending    PaymentStatus = "pending"
+	PaymentStatusSettlement PaymentStatus = "settlement" // Midtrans success status
+	PaymentStatusExpire     PaymentStatus = "expire"
+	PaymentStatusFailure    PaymentStatus = "failure"
+	PaymentStatusCancel     PaymentStatus = "cancel"
+)
+
+type InstallmentStatus string
+
+const (
+	InstallmentStatusPending InstallmentStatus = "pending"
+	InstallmentStatusPaid    InstallmentStatus = "paid"
+	InstallmentStatusOverdue InstallmentStatus = "overdue"
+	InstallmentStatusFailed  InstallmentStatus = "failed"
+)
+
+// --- Main Models ---
+
 type User struct {
 	ID             int64            `gorm:"primaryKey;autoIncrement" json:"id"`
 	FullName       string           `gorm:"not null" json:"full_name"`
@@ -20,10 +68,9 @@ type User struct {
 	UpdatedAt      time.Time        `json:"updated_at"`
 	DeletedAt      gorm.DeletedAt   `gorm:"index" json:"-"`
 	Roles          []*Role          `gorm:"many2many:user_roles;" json:"roles,omitempty"`
-	PaymentMethods []*PaymentMethod `gorm:"foreignKey:UserID" json:"payment_methods,omitempty"` // A user can have many payment methods
+	PaymentMethods []*PaymentMethod `gorm:"foreignKey:UserID" json:"payment_methods,omitempty"`
 }
 
-// Role corresponds to the 'roles' table
 type Role struct {
 	ID        int64          `gorm:"primaryKey;autoIncrement" json:"id"`
 	Name      string         `gorm:"unique;not null" json:"name"`
@@ -32,11 +79,10 @@ type Role struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
-// PaymentMethod corresponds to the 'payment_methods' table
 type PaymentMethod struct {
 	ID            int64          `gorm:"primaryKey;autoIncrement" json:"id"`
 	UserID        int64          `gorm:"not null" json:"user_id"`
-	MidtransToken string         `gorm:"unique;not null" json:"-"` // Never expose the token to the client
+	MidtransToken string         `gorm:"unique;not null" json:"-"`
 	CardType      string         `json:"card_type"`
 	MaskedCard    string         `gorm:"not null" json:"masked_card"`
 	IsDefault     bool           `gorm:"default:false" json:"is_default"`
@@ -45,7 +91,6 @@ type PaymentMethod struct {
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
-// Vehicle corresponds to the 'vehicles' table
 type Vehicle struct {
 	ID          int64           `gorm:"primaryKey;autoIncrement" json:"id"`
 	Make        string          `gorm:"not null" json:"make"`
@@ -54,14 +99,13 @@ type Vehicle struct {
 	VIN         string          `gorm:"unique;not null" json:"vin"`
 	Price       float64         `gorm:"type:decimal(15,2);not null" json:"price"`
 	Description string          `json:"description"`
-	Status      string          `gorm:"not null;default:'available'" json:"status"`
+	Status      VehicleStatus   `gorm:"type:varchar(50);not null;default:'available'" json:"status"`
 	CreatedAt   time.Time       `json:"created_at"`
 	UpdatedAt   time.Time       `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt  `gorm:"index" json:"-"`
-	Images      []*VehicleImage `gorm:"foreignKey:VehicleID" json:"images,omitempty"` // A vehicle can have many images
+	Images      []*VehicleImage `gorm:"foreignKey:VehicleID" json:"images,omitempty"`
 }
 
-// VehicleImage corresponds to the 'vehicle_images' table
 type VehicleImage struct {
 	ID        int64          `gorm:"primaryKey;autoIncrement" json:"id"`
 	VehicleID int64          `gorm:"not null" json:"vehicle_id"`
@@ -72,13 +116,12 @@ type VehicleImage struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
-// Booking corresponds to the 'bookings' table
 type Booking struct {
 	ID          int64          `gorm:"primaryKey;autoIncrement" json:"id"`
 	UserID      int64          `gorm:"not null" json:"user_id"`
 	VehicleID   int64          `gorm:"not null" json:"vehicle_id"`
 	BookingDate time.Time      `gorm:"not null" json:"booking_date"`
-	Status      string         `gorm:"not null;default:'pending'" json:"status"`
+	Status      BookingStatus  `gorm:"type:varchar(50);not null;default:'pending'" json:"status"`
 	CreatedAt   time.Time      `json:"created_at"`
 	UpdatedAt   time.Time      `json:"updated_at"`
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
@@ -86,21 +129,19 @@ type Booking struct {
 	Vehicle     *Vehicle       `gorm:"foreignKey:VehicleID" json:"vehicle,omitempty"`
 }
 
-// Schedule corresponds to the 'schedules' table
 type Schedule struct {
 	ID                  int64          `gorm:"primaryKey;autoIncrement" json:"id"`
 	BookingID           int64          `gorm:"unique;not null" json:"booking_id"`
-	UserID              int64          `gorm:"not null" json:"user_id"` // Represents the staff member
+	UserID              int64          `gorm:"not null" json:"user_id"`
 	AppointmentDatetime time.Time      `gorm:"not null" json:"appointment_datetime"`
 	Notes               string         `json:"notes"`
-	Status              string         `gorm:"not null;default:'scheduled'" json:"status"`
+	Status              ScheduleStatus `gorm:"type:varchar(50);not null;default:'scheduled'" json:"status"`
 	CreatedAt           time.Time      `json:"created_at"`
 	UpdatedAt           time.Time      `json:"updated_at"`
 	DeletedAt           gorm.DeletedAt `gorm:"index" json:"-"`
 	User                *User          `gorm:"foreignKey:UserID" json:"staff_member,omitempty"`
 }
 
-// Agreement corresponds to the 'agreements' table
 type Agreement struct {
 	ID            int64          `gorm:"primaryKey;autoIncrement" json:"id"`
 	BookingID     int64          `gorm:"unique;not null" json:"booking_id"`
@@ -114,13 +155,12 @@ type Agreement struct {
 	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
-// Payment corresponds to the 'payments' table
 type Payment struct {
 	ID                    int64          `gorm:"primaryKey;autoIncrement" json:"id"`
 	AgreementID           int64          `gorm:"not null" json:"agreement_id"`
 	Amount                float64        `gorm:"type:decimal(15,2);not null" json:"amount"`
 	PaymentMethod         string         `gorm:"not null" json:"payment_method"`
-	Status                string         `gorm:"not null;default:'pending'" json:"status"`
+	Status                PaymentStatus  `gorm:"type:varchar(50);not null;default:'pending'" json:"status"`
 	MidtransTransactionID string         `gorm:"unique" json:"midtrans_transaction_id,omitempty"`
 	PaymentURL            string         `json:"payment_url,omitempty"`
 	CreatedAt             time.Time      `json:"created_at"`
@@ -128,17 +168,16 @@ type Payment struct {
 	DeletedAt             gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
-// Installment corresponds to the 'installments' table
 type Installment struct {
-	ID            int64          `gorm:"primaryKey;autoIncrement" json:"id"`
-	PaymentID     int64          `gorm:"not null" json:"payment_id"`
-	DueDate       time.Time      `gorm:"type:date;not null" json:"due_date"`
-	AmountDue     float64        `gorm:"type:decimal(15,2);not null" json:"amount_due"`
-	PenaltyAmount float64        `gorm:"type:decimal(15,2);not null;default:0" json:"penalty_amount"`
-	TotalDue      float64        `gorm:"type:decimal(15,2);not null" json:"total_due"`
-	Status        string         `gorm:"not null;default:'pending'" json:"status"`
-	PaidDate      *time.Time     `gorm:"type:date" json:"paid_date,omitempty"` // Pointer to handle NULL
-	CreatedAt     time.Time      `json:"created_at"`
-	UpdatedAt     time.Time      `json:"updated_at"`
-	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	ID            int64             `gorm:"primaryKey;autoIncrement" json:"id"`
+	PaymentID     int64             `gorm:"not null" json:"payment_id"`
+	DueDate       time.Time         `gorm:"type:date;not null" json:"due_date"`
+	AmountDue     float64           `gorm:"type:decimal(15,2);not null" json:"amount_due"`
+	PenaltyAmount float64           `gorm:"type:decimal(15,2);not null;default:0" json:"penalty_amount"`
+	TotalDue      float64           `gorm:"type:decimal(15,2);not null" json:"total_due"`
+	Status        InstallmentStatus `gorm:"type:varchar(50);not null;default:'pending'" json:"status"`
+	PaidDate      *time.Time        `gorm:"type:date" json:"paid_date,omitempty"`
+	CreatedAt     time.Time         `json:"created_at"`
+	UpdatedAt     time.Time         `json:"updated_at"`
+	DeletedAt     gorm.DeletedAt    `gorm:"index" json:"-"`
 }

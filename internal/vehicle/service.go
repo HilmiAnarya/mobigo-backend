@@ -8,10 +8,10 @@ import (
 
 // Service defines the business logic operations for vehicles.
 type Service interface {
-	CreateVehicle(ctx context.Context, make, model, vin, description, status string, year int, price float64) (*domain.Vehicle, error)
+	CreateVehicle(ctx context.Context, make, model, vin, description string, year int, price float64, status domain.VehicleStatus) (*domain.Vehicle, error)
 	GetAllVehicles(ctx context.Context) ([]*domain.Vehicle, error)
 	GetVehicleByID(ctx context.Context, id int64) (*domain.Vehicle, error)
-	UpdateVehicle(ctx context.Context, id int64, make, model, vin, description, status string, year int, price float64) (*domain.Vehicle, error)
+	UpdateVehicle(ctx context.Context, id int64, make, model, vin, description string, year int, price float64, status domain.VehicleStatus) (*domain.Vehicle, error)
 	DeleteVehicle(ctx context.Context, id int64) error
 }
 
@@ -30,7 +30,7 @@ func NewService(repo Repository, timeout time.Duration) Service {
 }
 
 // CreateVehicle handles the business logic for creating a new vehicle.
-func (s *service) CreateVehicle(ctx context.Context, make, model, vin, description, status string, year int, price float64) (*domain.Vehicle, error) {
+func (s *service) CreateVehicle(ctx context.Context, make, model, vin, description string, year int, price float64, status domain.VehicleStatus) (*domain.Vehicle, error) {
 	newVehicle := &domain.Vehicle{
 		Make:        make,
 		Model:       model,
@@ -60,7 +60,7 @@ func (s *service) GetVehicleByID(ctx context.Context, id int64) (*domain.Vehicle
 }
 
 // UpdateVehicle handles the business logic for updating an existing vehicle.
-func (s *service) UpdateVehicle(ctx context.Context, id int64, make, model, vin, description, status string, year int, price float64) (*domain.Vehicle, error) {
+func (s *service) UpdateVehicle(ctx context.Context, id int64, make, model, vin, description string, year int, price float64, status domain.VehicleStatus) (*domain.Vehicle, error) {
 	// First, get the existing vehicle to make sure it exists.
 	vehicleToUpdate, err := s.repo.GetVehicleByID(ctx, id)
 	if err != nil {

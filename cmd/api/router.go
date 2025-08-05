@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mobigo-backend/pkg/middleware"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -10,13 +11,12 @@ import (
 func defineRoutes(handlers *apiHandlers) *mux.Router {
 	router := mux.NewRouter()
 
-	// Register routes for the user feature using the userHandler from the container.
-	handlers.userHandler.RegisterRoutes(router)
+	authMiddleware := middleware.JWTAuthMiddleware(jwtSecret)
 
-	// When we add the vehicle feature, we will just add one line here:
-	handlers.vehicleHandler.RegisterRoutes(router)
-
-	handlers.bookingHandler.RegisterRoutes(router) // Register the new booking routes
+	// Pass the middleware to the handlers that need it
+	handlers.userHandler.RegisterRoutes(router)                    // User routes don't need protection
+	handlers.vehicleHandler.RegisterRoutes(router, authMiddleware) // Protect vehicle routes
+	handlers.bookingHandler.RegisterRoutes(router, authMiddleware) // Protect booking routes
 
 	// General-purpose routes
 	router.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {

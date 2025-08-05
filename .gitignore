@@ -12,6 +12,7 @@ vendor/
 .env.*
 !.env.example
 pkg/database/mysql.go
+pkg/middleware/auth.go
 
 # OS-generated files
 .DS_Store
