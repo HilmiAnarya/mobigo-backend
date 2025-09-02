@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/robfig/cron/v3"
 	"github.com/rs/cors"
 	"log"
 	"mobigo-backend/internal/agreement"
@@ -8,6 +9,7 @@ import (
 	"mobigo-backend/internal/installment"
 	"mobigo-backend/internal/payment"
 	"mobigo-backend/internal/schedule"
+	"mobigo-backend/internal/task"
 	"mobigo-backend/internal/user"
 	"mobigo-backend/internal/vehicle"
 	"net/http"
@@ -79,9 +81,20 @@ func main() {
 	// 4. Define Routes
 	router := defineRoutes(handlers, jwtSecret)
 
+	// --- Setup Cron Jobs ---
+	c := cron.New()
+	penaltyChecker := task.NewPenaltyChecker(installmentRepository)
+	// THE FIX: Set the schedule to run once a day at midnight ("0 0 * * *").
+	_, err = c.AddFunc("* * * * *", penaltyChecker.Run)
+	if err != nil {
+		log.Fatalf("Could not add cron job: %v", err)
+	}
+	c.Start()
+	log.Println("Cron job scheduler started. Penalty check will run daily at midnight.")
+	defer c.Stop()
+
 	// 5. Setup CORS using rs/cors
-	// This creates a new CORS handler with our desired options.
-	c := cors.New(cors.Options{
+	corsHandler := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:5173"}, // Your React app's origin
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE"},
 		AllowedHeaders:   []string{"Content-Type", "Authorization"},
@@ -92,6 +105,6 @@ func main() {
 	addr := ":8080"
 	log.Printf("Server starting on %s\n", addr)
 	// We wrap our main router with the CORS handler.
-	handler := c.Handler(router)
+	handler := corsHandler.Handler(router)
 	log.Fatal(http.ListenAndServe(addr, handler))
 }
