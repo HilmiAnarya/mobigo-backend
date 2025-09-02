@@ -8,15 +8,18 @@ import (
 )
 
 // defineRoutes now accepts the apiHandlers container, giving it access to all handlers.
-func defineRoutes(handlers *apiHandlers) *mux.Router {
+func defineRoutes(handlers *apiHandlers, jwtSecret string) *mux.Router {
 	router := mux.NewRouter()
 
 	authMiddleware := middleware.JWTAuthMiddleware(jwtSecret)
 
 	// Pass the middleware to the handlers that need it
-	handlers.userHandler.RegisterRoutes(router)                    // User routes don't need protection
-	handlers.vehicleHandler.RegisterRoutes(router, authMiddleware) // Protect vehicle routes
-	handlers.bookingHandler.RegisterRoutes(router, authMiddleware) // Protect booking routes
+	handlers.userHandler.RegisterRoutes(router)
+	handlers.vehicleHandler.RegisterRoutes(router, authMiddleware)
+	handlers.bookingHandler.RegisterRoutes(router, authMiddleware)
+	handlers.scheduleHandler.RegisterRoutes(router, authMiddleware)
+	handlers.agreementHandler.RegisterRoutes(router, authMiddleware)
+	handlers.paymentHandler.RegisterRoutes(router, authMiddleware)
 
 	// General-purpose routes
 	router.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {

@@ -18,25 +18,28 @@ func NewGORMRepository(db *gorm.DB) Repository {
 
 // CreateUser inserts a new user record into the database using GORM.
 // GORM's `Create` method handles the SQL INSERT statement.
+// CreateUser now uses a transaction to ensure both the user and their role association are created.
 func (r *gormRepository) CreateUser(ctx context.Context, user *domain.User) error {
-	// We also use .WithContext(ctx) to pass the request context to the database driver,
-	// which is important for handling timeouts and cancellations.
-	return r.db.WithContext(ctx).Create(user).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(user).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(user).Association("Roles").Append(user.Roles); err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
-// GetUserByEmail retrieves a user by their email address using GORM.
-// GORM's `Where` and `First` methods build the SELECT ... WHERE ... LIMIT 1 query.
 func (r *gormRepository) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
 	var user domain.User
-	err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
+	// THE FIX: Preload("Roles") tells GORM to also fetch the associated roles for this user.
+	// Without this, the user.Roles slice will always be empty.
+	err := r.db.WithContext(ctx).Preload("Roles").Where("email = ?", email).First(&user).Error
 	if err != nil {
-		// If the record is not found, GORM returns a specific error.
-		// We check for this error and return `nil` for both user and error,
-		// because "not found" is an expected outcome, not a system failure.
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
-		// For any other database error, we return it.
 		return nil, err
 	}
 	return &user, nil

@@ -3,7 +3,11 @@ package main
 import (
 	"github.com/rs/cors"
 	"log"
+	"mobigo-backend/internal/agreement"
 	"mobigo-backend/internal/booking"
+	"mobigo-backend/internal/installment"
+	"mobigo-backend/internal/payment"
+	"mobigo-backend/internal/schedule"
 	"mobigo-backend/internal/user"
 	"mobigo-backend/internal/vehicle"
 	"net/http"
@@ -15,18 +19,20 @@ import (
 // apiHandlers is a container struct that holds all the different
 // feature handlers for our application.
 type apiHandlers struct {
-	userHandler    *user.Handler
-	vehicleHandler *vehicle.Handler
-	bookingHandler *booking.Handler // Add the booking handler
+	userHandler      *user.Handler
+	vehicleHandler   *vehicle.Handler
+	bookingHandler   *booking.Handler
+	scheduleHandler  *schedule.Handler
+	agreementHandler *agreement.Handler
+	paymentHandler   *payment.Handler
 }
-
-var jwtSecret = "a_very_secret_key_that_should_be_long_and_random"
 
 func main() {
 	// 1. Initialize Database Connection
 	dbUser := "root"
 	dbPassword := "" // Use your MySQL root password
 	dbName := "mobigo_db"
+	var jwtSecret = "a_very_secret_key_that_should_be_long_and_random"
 
 	db, err := database.Connect(dbUser, dbPassword, dbName)
 	if err != nil {
@@ -34,28 +40,44 @@ func main() {
 	}
 	log.Println("Successfully connected to the database using GORM!")
 
-	// 2. Wire up all dependencies
+	// --- Dependency Injection (Wiring) ---
+	// Build repositories
 	userRepository := user.NewGORMRepository(db)
-	userService := user.NewService(userRepository, jwtSecret, 5*time.Second)
-	userHandler := user.NewHandler(userService)
-
 	vehicleRepository := vehicle.NewGORMRepository(db)
-	vehicleService := vehicle.NewService(vehicleRepository, 5*time.Second)
-	vehicleHandler := vehicle.NewHandler(vehicleService)
-
 	bookingRepository := booking.NewGORMRepository(db)
-	bookingService := booking.NewService(bookingRepository, 5*time.Second)
+	scheduleRepository := schedule.NewGORMRepository(db)
+	agreementRepository := agreement.NewGORMRepository(db)
+	paymentRepository := payment.NewGORMRepository(db)
+	installmentRepository := installment.NewGORMRepository(db)
+
+	// Build services
+	userService := user.NewService(userRepository, jwtSecret, 5*time.Second)
+	vehicleService := vehicle.NewService(vehicleRepository, 5*time.Second)
+	bookingService := booking.NewService(bookingRepository, scheduleRepository, 5*time.Second)
+	scheduleService := schedule.NewService(scheduleRepository)
+	agreementService := agreement.NewService(agreementRepository)
+	paymentService := payment.NewService(paymentRepository, installmentRepository, 10*time.Second)
+
+	// Build handlers
+	userHandler := user.NewHandler(userService)
+	vehicleHandler := vehicle.NewHandler(vehicleService)
 	bookingHandler := booking.NewHandler(bookingService)
+	scheduleHandler := schedule.NewHandler(scheduleService)
+	agreementHandler := agreement.NewHandler(agreementService)
+	paymentHandler := payment.NewHandler(paymentService)
 
 	// 3. Create the master handler container
 	handlers := &apiHandlers{
-		userHandler:    userHandler,
-		vehicleHandler: vehicleHandler,
-		bookingHandler: bookingHandler, // Add the booking handler instance
+		userHandler:      userHandler,
+		vehicleHandler:   vehicleHandler,
+		bookingHandler:   bookingHandler,
+		scheduleHandler:  scheduleHandler,
+		agreementHandler: agreementHandler,
+		paymentHandler:   paymentHandler,
 	}
 
 	// 4. Define Routes
-	router := defineRoutes(handlers)
+	router := defineRoutes(handlers, jwtSecret)
 
 	// 5. Setup CORS using rs/cors
 	// This creates a new CORS handler with our desired options.

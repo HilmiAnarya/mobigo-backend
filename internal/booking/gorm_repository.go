@@ -25,8 +25,8 @@ func (r *gormRepository) CreateBooking(ctx context.Context, booking *domain.Book
 func (r *gormRepository) GetAllBookings(ctx context.Context) ([]*domain.Booking, error) {
 	var bookings []*domain.Booking
 	err := r.db.WithContext(ctx).
-		Preload("User"). // Load the associated User
-		Preload("Vehicle"). // Load the associated Vehicle
+		Preload("User").          // Load the associated User
+		Preload("Vehicle").       // Load the associated Vehicle
 		Order("created_at desc"). // Show newest bookings first
 		Find(&bookings).Error
 	return bookings, err

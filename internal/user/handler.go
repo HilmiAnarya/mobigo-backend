@@ -29,7 +29,7 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	customerRouter := router.PathPrefix("/api/customers").Subrouter()
 	customerRouter.HandleFunc("/register", h.registerCustomerHandler).Methods("POST")
 	// We can reuse the login handler for customers, as the logic is identical.
-	customerRouter.HandleFunc("/login", h.loginStaffHandler).Methods("POST")
+	customerRouter.HandleFunc("/login", h.loginCustomerHandler).Methods("POST")
 }
 
 // --- General Structs (used by both staff and customer) ---
@@ -93,6 +93,29 @@ func (h *Handler) registerCustomerHandler(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(resp)
 }
 
+func (h *Handler) loginCustomerHandler(w http.ResponseWriter, r *http.Request) {
+	var req loginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+	token, err := h.service.LoginCustomer(r.Context(), req.Email, req.Password)
+	if err != nil {
+		// Handle specific errors
+		if err.Error() == "access denied: staff cannot log in through customer portal" {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
+		if err.Error() == "invalid email or password" {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+		http.Error(w, "Login failed", http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(loginResponse{Token: token})
+}
+
 // --- Staff Handlers ---
 type registerStaffRequest struct {
 	FullName    string `json:"full_name"`
@@ -152,23 +175,19 @@ func (h *Handler) loginStaffHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
-
-	// Call the login service
-	_, token, err := h.service.LoginStaff(r.Context(), req.Email, req.Password)
+	token, err := h.service.LoginStaff(r.Context(), req.Email, req.Password)
 	if err != nil {
-		// Check for our specific business error
-		if err.Error() == "invalid email or password" {
-			http.Error(w, err.Error(), http.StatusUnauthorized) // 401 Unauthorized
+		// Handle our new authorization error specifically
+		if err.Error() == "access denied: user is not a staff member" {
+			http.Error(w, err.Error(), http.StatusForbidden) // 403 Forbidden is the correct code
 			return
 		}
-		// For other errors, it's a server problem
+		if err.Error() == "invalid email or password" {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
 		http.Error(w, "Login failed", http.StatusInternalServerError)
 		return
 	}
-
-	// Create and send the successful response containing the token
-	resp := loginResponse{Token: token}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(resp)
+	json.NewEncoder(w).Encode(loginResponse{Token: token})
 }

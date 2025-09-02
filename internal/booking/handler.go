@@ -2,7 +2,6 @@ package booking
 
 import (
 	"encoding/json"
-	"mobigo-backend/internal/domain"
 	"mobigo-backend/pkg/middleware" // Import our new middleware package
 	"net/http"
 	"strconv"
@@ -24,11 +23,12 @@ func (h *Handler) RegisterRoutes(router *mux.Router, authMiddleware func(http.Ha
 
 	// All routes in this handler are protected by the auth middleware.
 	r.Use(authMiddleware)
-
+	
 	r.HandleFunc("", h.getAllBookingsHandler).Methods("GET")
 	r.HandleFunc("", h.createBookingHandler).Methods("POST")
-	r.HandleFunc("/{id}", h.getBookingByIDHandler).Methods("GET")      // New route
-	r.HandleFunc("/{id}/status", h.updateStatusHandler).Methods("PUT") // New route
+	r.HandleFunc("/{id}", h.getBookingByIDHandler).Methods("GET")
+	r.HandleFunc("/{id}/propose-time", h.proposeTimeHandler).Methods("PUT")
+	r.HandleFunc("/{id}/confirm", h.confirmScheduleHandler).Methods("POST")
 }
 
 // --- New Create Booking Handler ---
@@ -40,6 +40,14 @@ type createBookingRequest struct {
 
 type updateStatusRequest struct {
 	Status string `json:"status"`
+}
+
+type proposeTimeRequest struct {
+	ProposedTime string `json:"proposed_time"`
+}
+
+type confirmScheduleRequest struct {
+	Notes string `json:"notes"`
 }
 
 func (h *Handler) createBookingHandler(w http.ResponseWriter, r *http.Request) {
@@ -107,34 +115,47 @@ func (h *Handler) getBookingByIDHandler(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(booking)
 }
 
-func (h *Handler) updateStatusHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) proposeTimeHandler(w http.ResponseWriter, r *http.Request) {
+	customerID, _ := r.Context().Value(middleware.UserIDKey).(int64)
 	vars := mux.Vars(r)
-	id, err := strconv.ParseInt(vars["id"], 10, 64)
-	if err != nil {
-		http.Error(w, "Invalid booking ID", http.StatusBadRequest)
-		return
-	}
+	bookingID, _ := strconv.ParseInt(vars["id"], 10, 64)
 
-	var req updateStatusRequest
+	var req proposeTimeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		http.Error(w, "Invalid body", http.StatusBadRequest)
 		return
 	}
-
-	// Convert the incoming string to our safe enum type
-	newStatus := domain.BookingStatus(req.Status)
-
-	updatedBooking, err := h.service.UpdateBookingStatus(r.Context(), id, newStatus)
+	proposedTime, err := time.Parse(time.RFC3339, req.ProposedTime)
 	if err != nil {
-		if err.Error() == "booking not found" {
-			http.Error(w, err.Error(), http.StatusNotFound)
-			return
-		}
-		http.Error(w, "Failed to update booking status", http.StatusInternalServerError)
+		http.Error(w, "Invalid time format, use RFC3339", http.StatusBadRequest)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	_, err = h.service.ProposeSchedule(r.Context(), bookingID, customerID, proposedTime)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(updatedBooking)
+}
+
+func (h *Handler) confirmScheduleHandler(w http.ResponseWriter, r *http.Request) {
+	staffID, _ := r.Context().Value(middleware.UserIDKey).(int64)
+	vars := mux.Vars(r)
+	bookingID, _ := strconv.ParseInt(vars["id"], 10, 64)
+
+	var req confirmScheduleRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid body", http.StatusBadRequest)
+		return
+	}
+
+	schedule, err := h.service.ConfirmSchedule(r.Context(), bookingID, staffID, req.Notes)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(schedule)
 }
