@@ -60,8 +60,8 @@ func main() {
 	vehicleService := vehicle.NewService(vehicleRepository, 5*time.Second)
 	bookingService := booking.NewService(bookingRepository, scheduleRepository, vehicleRepository)
 	scheduleService := schedule.NewService(scheduleRepository)
-	agreementService := agreement.NewService(agreementRepository, bookingRepository)
 	paymentService := payment.NewService(paymentRepository, installmentRepository, vehicleRepository, agreementRepository, bookingRepository)
+	agreementService := agreement.NewService(agreementRepository, bookingRepository, paymentService)
 	vehicleImageService := vehicleimage.NewService(vehicleImageRepository) // New service
 
 	// Build handlers
@@ -69,7 +69,7 @@ func main() {
 	vehicleHandler := vehicle.NewHandler(vehicleService)
 	bookingHandler := booking.NewHandler(bookingService)
 	scheduleHandler := schedule.NewHandler(scheduleService)
-	agreementHandler := agreement.NewHandler(agreementService, paymentService)
+	agreementHandler := agreement.NewHandler(agreementService)
 	paymentHandler := payment.NewHandler(paymentService)
 	vehicleImageHandler := vehicleimage.NewHandler(vehicleImageService) // New handler
 

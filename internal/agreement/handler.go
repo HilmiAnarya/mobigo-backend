@@ -1,23 +1,23 @@
+// File: internal/agreement/handler.go
+
 package agreement
 
 import (
 	"encoding/json"
 	"mobigo-backend/internal/domain"
-	"mobigo-backend/internal/payment" // Import payment to use its service
 	"net/http"
 
 	"github.com/gorilla/mux"
 )
 
+// THE FIX: The handler is now much simpler. It no longer needs to know about the payment service.
 type Handler struct {
-	service        Service
-	paymentService payment.Service // Add payment service as a dependency
+	service Service
 }
 
-func NewHandler(s Service, ps payment.Service) *Handler {
+func NewHandler(s Service) *Handler {
 	return &Handler{
-		service:        s,
-		paymentService: ps,
+		service: s,
 	}
 }
 
@@ -34,7 +34,7 @@ type createAgreementRequest struct {
 	Terms       string             `json:"terms"`
 }
 
-// This handler now orchestrates calls to two different services.
+// THE FIX: The handler's only job is to translate the request and call its own service.
 func (h *Handler) createAgreementHandler(w http.ResponseWriter, r *http.Request) {
 	var req createAgreementRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -42,20 +42,10 @@ func (h *Handler) createAgreementHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Step 1: Call the agreement service to create the agreement.
 	agreement, err := h.service.CreateAgreement(r.Context(), req.BookingID, req.FinalPrice, req.PaymentType, req.Terms)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
-	}
-
-	// Step 2: Check the payment type and call the payment service if needed.
-	if agreement.PaymentType == domain.PaymentTypeFull {
-		if err := h.paymentService.CreateFullPaymentForAgreement(r.Context(), agreement.ID); err != nil {
-			// In a real app, we might want to "roll back" the agreement creation if this fails.
-			http.Error(w, "Agreement created, but failed to create full payment record.", http.StatusInternalServerError)
-			return
-		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
