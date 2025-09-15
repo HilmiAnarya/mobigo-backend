@@ -12,6 +12,7 @@ import (
 	"mobigo-backend/internal/task"
 	"mobigo-backend/internal/user"
 	"mobigo-backend/internal/vehicle"
+	"mobigo-backend/internal/vehicleimage"
 	"net/http"
 	"time"
 
@@ -21,12 +22,13 @@ import (
 // apiHandlers is a container struct that holds all the different
 // feature handlers for our application.
 type apiHandlers struct {
-	userHandler      *user.Handler
-	vehicleHandler   *vehicle.Handler
-	bookingHandler   *booking.Handler
-	scheduleHandler  *schedule.Handler
-	agreementHandler *agreement.Handler
-	paymentHandler   *payment.Handler
+	userHandler         *user.Handler
+	vehicleHandler      *vehicle.Handler
+	bookingHandler      *booking.Handler
+	scheduleHandler     *schedule.Handler
+	agreementHandler    *agreement.Handler
+	paymentHandler      *payment.Handler
+	vehicleImageHandler *vehicleimage.Handler // Add the vehicle image handler
 }
 
 func main() {
@@ -51,31 +53,35 @@ func main() {
 	agreementRepository := agreement.NewGORMRepository(db)
 	paymentRepository := payment.NewGORMRepository(db)
 	installmentRepository := installment.NewGORMRepository(db)
+	vehicleImageRepository := vehicleimage.NewGORMRepository(db) // New repository
 
 	// Build services
 	userService := user.NewService(userRepository, jwtSecret, 5*time.Second)
 	vehicleService := vehicle.NewService(vehicleRepository, 5*time.Second)
-	bookingService := booking.NewService(bookingRepository, scheduleRepository, 5*time.Second)
+	bookingService := booking.NewService(bookingRepository, scheduleRepository, vehicleRepository)
 	scheduleService := schedule.NewService(scheduleRepository)
-	agreementService := agreement.NewService(agreementRepository)
-	paymentService := payment.NewService(paymentRepository, installmentRepository, 10*time.Second)
+	agreementService := agreement.NewService(agreementRepository, bookingRepository)
+	paymentService := payment.NewService(paymentRepository, installmentRepository, vehicleRepository, agreementRepository, bookingRepository)
+	vehicleImageService := vehicleimage.NewService(vehicleImageRepository) // New service
 
 	// Build handlers
 	userHandler := user.NewHandler(userService)
 	vehicleHandler := vehicle.NewHandler(vehicleService)
 	bookingHandler := booking.NewHandler(bookingService)
 	scheduleHandler := schedule.NewHandler(scheduleService)
-	agreementHandler := agreement.NewHandler(agreementService)
+	agreementHandler := agreement.NewHandler(agreementService, paymentService)
 	paymentHandler := payment.NewHandler(paymentService)
+	vehicleImageHandler := vehicleimage.NewHandler(vehicleImageService) // New handler
 
 	// 3. Create the master handler container
 	handlers := &apiHandlers{
-		userHandler:      userHandler,
-		vehicleHandler:   vehicleHandler,
-		bookingHandler:   bookingHandler,
-		scheduleHandler:  scheduleHandler,
-		agreementHandler: agreementHandler,
-		paymentHandler:   paymentHandler,
+		userHandler:         userHandler,
+		vehicleHandler:      vehicleHandler,
+		bookingHandler:      bookingHandler,
+		scheduleHandler:     scheduleHandler,
+		agreementHandler:    agreementHandler,
+		paymentHandler:      paymentHandler,
+		vehicleImageHandler: vehicleImageHandler, // Add handler to the container
 	}
 
 	// 4. Define Routes
@@ -85,7 +91,7 @@ func main() {
 	c := cron.New()
 	penaltyChecker := task.NewPenaltyChecker(installmentRepository)
 	// THE FIX: Set the schedule to run once a day at midnight ("0 0 * * *").
-	_, err = c.AddFunc("* * * * *", penaltyChecker.Run)
+	_, err = c.AddFunc("1 * * * *", penaltyChecker.Run)
 	if err != nil {
 		log.Fatalf("Could not add cron job: %v", err)
 	}

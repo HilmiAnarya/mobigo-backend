@@ -12,18 +12,20 @@ import (
 type VehicleStatus string
 
 const (
-	VehicleStatusAvailable VehicleStatus = "available"
-	VehicleStatusBooked    VehicleStatus = "booked"
-	VehicleStatusSold      VehicleStatus = "sold"
+	VehicleStatusAvailable     VehicleStatus = "available"
+	VehicleStatusBooked        VehicleStatus = "booked"
+	VehicleStatusSold          VehicleStatus = "sold"
+	VehicleStatusOnInstallment VehicleStatus = "on_installment" // THE NEW STATUS
 )
 
 type BookingStatus string
 
 const (
-	BookingStatusPending   BookingStatus = "pending"
-	BookingStatusConfirmed BookingStatus = "confirmed"
-	BookingStatusCancelled BookingStatus = "cancelled"
-	BookingStatusCompleted BookingStatus = "completed"
+	BookingStatusPending             BookingStatus = "pending"
+	BookingStatusConfirmed           BookingStatus = "confirmed"
+	BookingStatusCancelled           BookingStatus = "cancelled"
+	BookingStatusCompleted           BookingStatus = "completed"
+	BookingStatusRescheduleRequested BookingStatus = "reschedule_requested" // THE NEW STATUS
 )
 
 type ScheduleStatus string
@@ -43,6 +45,13 @@ const (
 	PaymentStatusExpire     PaymentStatus = "expire"
 	PaymentStatusFailure    PaymentStatus = "failure"
 	PaymentStatusCancel     PaymentStatus = "cancel"
+)
+
+type PaymentType string
+
+const (
+	PaymentTypeFull        PaymentType = "full_payment"
+	PaymentTypeInstallment PaymentType = "installment"
 )
 
 type InstallmentStatus string
@@ -119,14 +128,15 @@ type Booking struct {
 	ID               int64          `gorm:"primaryKey;autoIncrement" json:"id"`
 	UserID           int64          `gorm:"not null" json:"user_id"`
 	VehicleID        int64          `gorm:"not null" json:"vehicle_id"`
-	BookingDate      time.Time      `gorm:"not null" json:"booking_date"`
 	Status           BookingStatus  `gorm:"type:varchar(50);not null;default:'pending'" json:"status"`
 	ProposedDatetime *time.Time     `json:"proposed_datetime,omitempty"`
+	DeclineReason    *string        `json:"decline_reason,omitempty"` // THE NEW FIELD
 	CreatedAt        time.Time      `json:"created_at"`
 	UpdatedAt        time.Time      `json:"updated_at"`
 	DeletedAt        gorm.DeletedAt `gorm:"index" json:"-"`
 	User             *User          `gorm:"foreignKey:UserID" json:"user,omitempty"`
 	Vehicle          *Vehicle       `gorm:"foreignKey:VehicleID" json:"vehicle,omitempty"`
+	Agreement        *Agreement     `gorm:"foreignKey:BookingID" json:"agreement,omitempty"`
 }
 
 type Schedule struct {
@@ -146,7 +156,8 @@ type Agreement struct {
 	ID            int64          `gorm:"primaryKey;autoIncrement" json:"id"`
 	BookingID     int64          `gorm:"unique;not null" json:"booking_id"`
 	AgreementDate time.Time      `gorm:"not null" json:"agreement_date"`
-	FinalPrice    float64        `gorm:"type:decimal(15,2);not null" json:"final_price"`
+	FinalPrice    float64        `gorm:"type:decimal(15,2);not null" json:"final_price"` // CORRECT TYPE: float64
+	PaymentType   PaymentType    `gorm:"type:enum('full_payment', 'installment');not null" json:"payment_type"`
 	Terms         string         `json:"terms"`
 	SignedByUser  bool           `gorm:"default:false" json:"signed_by_user"`
 	SignedByStaff bool           `gorm:"default:false" json:"signed_by_staff"`
@@ -158,7 +169,7 @@ type Agreement struct {
 type Payment struct {
 	ID                    int64          `gorm:"primaryKey;autoIncrement" json:"id"`
 	AgreementID           int64          `gorm:"not null" json:"agreement_id"`
-	Amount                float64        `gorm:"type:decimal(15,2);not null" json:"amount"`
+	Amount                float64        `gorm:"type:decimal(15,2);not null" json:"amount"` // CORRECT TYPE: float64
 	PaymentMethod         string         `gorm:"not null" json:"payment_method"`
 	Status                PaymentStatus  `gorm:"type:varchar(50);not null;default:'pending'" json:"status"`
 	MidtransTransactionID *string        `gorm:"unique" json:"midtrans_transaction_id,omitempty"`
@@ -172,9 +183,9 @@ type Installment struct {
 	ID            int64             `gorm:"primaryKey;autoIncrement" json:"id"`
 	PaymentID     int64             `gorm:"not null" json:"payment_id"`
 	DueDate       time.Time         `gorm:"type:date;not null" json:"due_date"`
-	AmountDue     float64           `gorm:"type:decimal(15,2);not null" json:"amount_due"`
-	PenaltyAmount float64           `gorm:"type:decimal(15,2);not null;default:0" json:"penalty_amount"`
-	TotalDue      float64           `gorm:"type:decimal(15,2);not null" json:"total_due"`
+	AmountDue     float64           `gorm:"type:decimal(15,2);not null" json:"amount_due"`               // CORRECT TYPE: float64
+	PenaltyAmount float64           `gorm:"type:decimal(15,2);not null;default:0" json:"penalty_amount"` // CORRECT TYPE: float64
+	TotalDue      float64           `gorm:"type:decimal(15,2);not null" json:"total_due"`                // CORRECT TYPE: float64
 	Status        InstallmentStatus `gorm:"type:varchar(50);not null;default:'pending'" json:"status"`
 	PaidDate      *time.Time        `gorm:"type:date" json:"paid_date,omitempty"`
 	CreatedAt     time.Time         `json:"created_at"`

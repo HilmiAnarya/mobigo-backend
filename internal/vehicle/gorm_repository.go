@@ -32,10 +32,11 @@ func (r *gormRepository) GetAllVehicles(ctx context.Context) ([]*domain.Vehicle,
 // GetVehicleByID retrieves a single vehicle by its ID.
 func (r *gormRepository) GetVehicleByID(ctx context.Context, id int64) (*domain.Vehicle, error) {
 	var vehicle domain.Vehicle
-	err := r.db.WithContext(ctx).First(&vehicle, id).Error
+	// THE CHANGE: Preload("Images") tells GORM to also fetch the vehicle's images.
+	err := r.db.WithContext(ctx).Preload("Images").First(&vehicle, id).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, nil // Not found is an expected outcome
+			return nil, nil
 		}
 		return nil, err
 	}

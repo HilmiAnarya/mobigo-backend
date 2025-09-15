@@ -2,7 +2,9 @@ package payment
 
 import (
 	"encoding/json"
+	"mobigo-backend/pkg/middleware"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
@@ -16,14 +18,16 @@ func NewHandler(s Service) *Handler {
 }
 
 func (h *Handler) RegisterRoutes(router *mux.Router, authMiddleware func(http.Handler) http.Handler) {
-	// For now, this is an admin-only endpoint. We need to protect it.
-	// We will add the middleware later once the JWT is fully implemented for staff.
-	router.HandleFunc("/api/payments/generate-plan", h.generatePlanHandler).Methods("POST")
+	r := router.PathPrefix("/api/payments").Subrouter()
+	r.Use(authMiddleware)
+
+	r.HandleFunc("/generate-plan", h.generatePlanHandler).Methods("POST")
+	r.HandleFunc("/{id}/initiate", h.initiatePaymentHandler).Methods("POST")
 }
 
+// generatePlanRequest uses float64 to match the service and domain layers.
 type generatePlanRequest struct {
 	AgreementID        int64   `json:"agreement_id"`
-	TotalPrice         float64 `json:"total_price"`
 	DownPayment        float64 `json:"down_payment"`
 	Tenor              int     `json:"tenor"`
 	AnnualInterestRate float64 `json:"annual_interest_rate"`
@@ -38,7 +42,6 @@ func (h *Handler) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 
 	serviceReq := GeneratePlanRequest{
 		AgreementID:        req.AgreementID,
-		TotalPrice:         req.TotalPrice,
 		DownPayment:        req.DownPayment,
 		Tenor:              req.Tenor,
 		AnnualInterestRate: req.AnnualInterestRate,
@@ -51,4 +54,33 @@ func (h *Handler) generatePlanHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Installment plan generated successfully"})
+}
+
+func (h *Handler) initiatePaymentHandler(w http.ResponseWriter, r *http.Request) {
+	customerID, ok := r.Context().Value(middleware.UserIDKey).(int64)
+	if !ok {
+		http.Error(w, "Could not retrieve user ID from token", http.StatusInternalServerError)
+		return
+	}
+
+	vars := mux.Vars(r)
+	paymentID, err := strconv.ParseInt(vars["id"], 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid payment ID", http.StatusBadRequest)
+		return
+	}
+
+	payment, err := h.service.InitiatePayment(r.Context(), paymentID, customerID)
+	if err != nil {
+		if err.Error() == "unauthorized: you do not own this booking" {
+			http.Error(w, err.Error(), http.StatusForbidden)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(payment)
 }
