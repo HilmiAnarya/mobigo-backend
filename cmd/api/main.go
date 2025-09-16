@@ -35,7 +35,7 @@ func main() {
 	// 1. Initialize Database Connection
 	dbUser := "root"
 	dbPassword := "" // Use your MySQL root password
-	dbName := "mobigo_db"
+	dbName := "mobigo-be"
 	var jwtSecret = "a_very_secret_key_that_should_be_long_and_random"
 
 	db, err := database.Connect(dbUser, dbPassword, dbName)

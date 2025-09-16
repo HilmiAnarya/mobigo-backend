@@ -1,5 +1,3 @@
-DROP TYPE IF EXISTS vehicle_status CASCADE;
-
 CREATE TYPE vehicle_status AS ENUM ('available', 'booked', 'sold', 'on_installment');
 
 CREATE TABLE vehicles (
