@@ -1,1 +1,5 @@
-ALTER TABLE `vehicles` MODIFY COLUMN `price` DECIMAL(21, 2) NOT NULL;
+CREATE TABLE user_roles (
+    user_id INT NOT NULL REFERENCES users(id),
+    role_id INT NOT NULL REFERENCES roles(id),
+    PRIMARY KEY (user_id, role_id)
+);
