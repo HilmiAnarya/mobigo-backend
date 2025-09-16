@@ -45,6 +45,7 @@ func (r *gormRepository) GetBookingByID(ctx context.Context, id int64) (*domain.
 			return nil, nil // Not found is an expected outcome
 		}
 		return nil, err
+
 	}
 	return &booking, nil
 }

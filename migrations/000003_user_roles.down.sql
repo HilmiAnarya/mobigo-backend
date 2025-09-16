@@ -1,0 +1,1 @@
+ALTER TABLE `vehicles` MODIFY COLUMN `price` DECIMAL(10, 2) NOT NULL;
