@@ -1,3 +1,1 @@
-ALTER TABLE `roles`
-DROP COLUMN `created_at`,
-DROP COLUMN `updated_at`;
+DROP TABLE IF EXISTS vehicle_images;

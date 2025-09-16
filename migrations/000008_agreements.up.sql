@@ -1,10 +1,5 @@
--- Hapus tipe enum kalau sudah ada biar gak error pas re-run
-DROP TYPE IF EXISTS payment_type CASCADE;
-
--- Bikin ENUM baru untuk payment_type
 CREATE TYPE payment_type AS ENUM ('full_payment', 'installment');
 
--- Bikin tabel agreements
 CREATE TABLE agreements (
     id SERIAL PRIMARY KEY,
     booking_id INT NOT NULL REFERENCES bookings(id),

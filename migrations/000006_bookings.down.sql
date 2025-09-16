@@ -1,2 +1,1 @@
-ALTER TABLE `bookings`
-DROP COLUMN `proposed_datetime`;
+DROP TABLE IF EXISTS bookings;
